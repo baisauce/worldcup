@@ -72,7 +72,6 @@ async function initApp() {
     }
 }
 
-// 渲染个人历史记录 (显示当时锁定的下注赔率)
 function renderHistory(bets) {
     const container = document.getElementById('history-container');
     if (!bets || bets.length === 0) {
@@ -81,7 +80,7 @@ function renderHistory(bets) {
     }
     container.innerHTML = bets.map(bet => {
         let statusClass = `status-${bet.status}`;
-        let statusText = bet.status === 'pending' ? '等待开赛' : bet.status;
+        let statusText = bet.status === 'pending' ? '等待结算' : bet.status;
         let showOdds = bet.odds ? bet.odds.toFixed(2) : '2.00';
         return `
             <div class="history-item">
@@ -97,7 +96,6 @@ function renderHistory(bets) {
     }).join('');
 }
 
-// 渲染全服大厅排行榜与全公开注单
 function renderLeaderboard(users) {
     const container = document.getElementById('leaderboard-container');
     if (!users || users.length === 0) {
@@ -149,7 +147,7 @@ function renderLeaderboard(users) {
     }).join('');
 }
 
-// 渲染赛程列表（在投注按钮上直接展现高能赔率）
+// 渲染赛程列表 (🌟加入前端智能实时时差判断)
 function renderSchedule(dateGroups) {
     const container = document.getElementById('matches-container');
     container.innerHTML = '';
@@ -167,10 +165,28 @@ function renderSchedule(dateGroups) {
                 ? `<span class="vs-score">${match.host_team_score} : ${match.guest_team_score}</span>`
                 : `<span class="vs">VS</span>`;
 
-            const isFinished = match.match_status === "3";
-            const btnAttr = isFinished ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : '';
+            // ⏰ 核心逻辑：获取当前时间戳 与 比赛开赛标准时间戳 进行动态比对
+            const matchTimeISO = match.date_time.replace(" ", "T") + "+08:00";
+            const matchStartTime = new Date(matchTimeISO).getTime();
+            const localNow = Date.now();
 
-            // 提取后端传入的手动赔率进行格式化显示
+            const isFinished = match.match_status === "3";
+            const isStarted = localNow >= matchStartTime; // 只要到了开赛时间，该变量即为 true
+
+            let btnAttr = '';
+            let statusBadge = '';
+
+            if (isFinished) {
+                btnAttr = 'disabled style="opacity:0.4; background:#cbd5e0; color:#718096; cursor:not-allowed;"';
+                statusBadge = `<span style="color:#e53e3e; font-weight:bold; margin-left:8px;">[已完赛]</span>`;
+            } else if (isStarted) {
+                // 如果时间已过，但接口尚未标记完赛（说明正在比赛中），强制进行封盘置灰
+                btnAttr = 'disabled style="opacity:0.5; background:#e2e8f0; color:#a0aec0; cursor:not-allowed;"';
+                statusBadge = `<span style="color:#dd6b20; font-weight:bold; margin-left:8px;">[比赛中·已封盘]</span>`;
+            } else {
+                statusBadge = `<span style="color:#38a169; font-weight:bold; margin-left:8px;">[受注中·未开赛]</span>`;
+            }
+
             const oddsObj = match.custom_odds || {};
             const hOdds = oddsObj[`${match.host_team_name} 胜`] ? oddsObj[`${match.host_team_name} 胜`].toFixed(2) : '--';
             const dOdds = oddsObj['平局'] ? oddsObj['平局'].toFixed(2) : '--';
@@ -178,9 +194,9 @@ function renderSchedule(dateGroups) {
 
             card.innerHTML = `
                 <div class="match-info">
-                    <span>【${match.match_type_name}·${match.match_type_des}】</span> | 
-                    <span>时间: ${match.date_time.substring(11, 16)}</span> | 
-                    <span style="color:${match.match_status==='3'?'#999':'#2b6cb0'}">${match.match_des}</span>
+                    <span>【${match.match_type_name}】</span> | 
+                    <span>时间: ${match.date_time.substring(11, 16)}</span> 
+                    ${statusBadge}
                 </div>
                 <div class="match-teams">
                     <div class="team">
@@ -233,7 +249,8 @@ window.handleBet = async function(matchName, prediction) {
             renderHistory(res.bets);
             initApp(); 
         } else {
-            alert(res.error);
+            alert(res.error); // 🔒 后端如果拦截成功，这里会直接弹窗警告比赛已开赛
+            initApp(); // 刷新强制同步状态
         }
     } catch (err) {
         alert("网络请求错误");
