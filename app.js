@@ -1,80 +1,125 @@
-// 1. 配置你的 Cloudflare Worker 专属链接
-// ⚠️ 请务必替换为你在 Cloudflare 得到的真实域名
+// 1. 配置你的 Cloudflare Worker 专属链接（已为你替换为真实链接）
 const API_URL = 'https://worldcup-api.carl-ning-buaa.workers.dev/'; 
 
-// 2. 初始化本地钱包和投注历史
-let balance = parseInt(localStorage.getItem('wc_balance')) || 1000;
-let betHistory = JSON.parse(localStorage.getItem('wc_history')) || [];
+let currentUsername = localStorage.getItem('wc_logged_user') || null;
 
-// 刷新顶部余额显示
-function updateBalanceDisplay() {
-    document.getElementById('balance').innerText = balance;
-    localStorage.setItem('wc_balance', balance);
+// 2. 登录与注册统一处理
+async function handleAuth(type) {
+    const u = document.getElementById('auth-username').value.trim();
+    const p = document.getElementById('auth-password').value.trim();
+    
+    if(!u || !p) return alert("请输入账号和密码！");
+
+    try {
+        const response = await fetch(`${API_URL}?action=${type}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: u, password: p })
+        });
+        const res = await response.json();
+
+        if (response.ok) {
+            alert(res.message || "登录成功！");
+            if(type === 'login' || type === 'register') {
+                localStorage.setItem('wc_logged_user', u);
+                currentUsername = u;
+                initApp();
+            }
+        } else {
+            alert("错误: " + res.error);
+        }
+    } catch (err) {
+        alert("网络请求失败，请检查后端服务");
+    }
 }
 
-// 刷新历史投注显示
-function updateHistoryDisplay() {
+// 退出登录
+function handleLogout() {
+    localStorage.removeItem('wc_logged_user');
+    currentUsername = null;
+    location.reload();
+}
+
+// 3. 初始化并拉取数据
+async function initApp() {
+    if (!currentUsername) {
+        document.getElementById('auth-container').style.display = 'block';
+        document.getElementById('main-app').style.display = 'none';
+        return;
+    }
+
+    // 隐藏登录页，显示主页
+    document.getElementById('auth-container').style.display = 'none';
+    document.getElementById('main-app').style.display = 'block';
+    document.getElementById('current-user-name').innerText = `👤 账号: ${currentUsername}`;
+
+    try {
+        // 请求后端获取赛程及该用户的资产、投注状态
+        const response = await fetch(`${API_URL}?action=get_data&username=${currentUsername}`);
+        const data = await response.json();
+
+        if (data.error) {
+            alert("数据同步失败: " + data.error);
+            return;
+        }
+
+        // 更新余额显示
+        document.getElementById('balance').innerText = data.user ? data.user.balance : 1000;
+        
+        // 渲染投注历史
+        renderHistory(data.user ? data.user.bets : []);
+
+        // 渲染赛程列表
+        renderSchedule(data.schedule);
+
+    } catch (error) {
+        console.error(error);
+        document.getElementById('matches-container').innerHTML = `<p class="loading" style="color:red;">数据加载失败</p>`;
+    }
+}
+
+// 4. 渲染投注历史 (带输赢状态)
+function renderHistory(bets) {
     const container = document.getElementById('history-container');
-    if (betHistory.length === 0) {
+    if (!bets || bets.length === 0) {
         container.innerHTML = '<p class="empty-tip">暂无投注记录，快去预测比赛吧！</p>';
         return;
     }
-    container.innerHTML = betHistory.map(bet => `
-        <div class="history-item">
-            <div><strong>${bet.match}</strong></div>
-            <div style="margin-top: 5px; color:#666;">
-                <span class="history-tag" style="background:#feebc8; color:#c05621;">猜: ${bet.prediction}</span> 
-                投了 <strong>${bet.amount}</strong> 🪙
+    container.innerHTML = bets.map(bet => {
+        let statusClass = `status-${bet.status}`;
+        let statusText = bet.status === 'pending' ? '等待开赛' : bet.status;
+        return `
+            <div class="history-item">
+                <div><strong>${bet.match_name}</strong></div>
+                <div style="margin-top: 5px; color:#666;">
+                    猜: <span class="history-tag" style="background:#e2e8f0;">${bet.prediction}</span> 
+                    投了 <strong>${bet.amount}</strong> 🪙
+                    <span class="status-tag ${statusClass}">${statusText}</span>
+                </div>
+                <div style="font-size:11px; color:#999; margin-top:2px;">下注时间: ${bet.time}</div>
             </div>
-            <div style="font-size:11px; color:#999; margin-top:2px;">时间: ${bet.time}</div>
-        </div>
-    `).join('');
-}
-
-// 3. 异步获取赛程数据
-async function fetchSchedule() {
-    try {
-        const response = await fetch(API_URL);
-        const json = await response.json();
-
-        if (json.error_code === 0) {
-            // 成功拿到数据，开始渲染
-            renderSchedule(json.result.data);
-        } else {
-            document.getElementById('matches-container').innerHTML = `<p class="loading" style="color:red;">API 报错: ${json.reason}</p>`;
-        }
-    } catch (error) {
-        console.error("Fetch Error:", error);
-        document.getElementById('matches-container').innerHTML = `
-            <p class="loading" style="color:red;">加载失败。请检查 Cloudflare Worker 链接是否填写正确，或稍后重试。</p>
         `;
-    }
+    }).join('');
 }
 
-// 4. 渲染赛程列表（严格匹配聚合数据嵌套结构）
+// 5. 渲染赛程列表
 function renderSchedule(dateGroups) {
     const container = document.getElementById('matches-container');
-    container.innerHTML = ''; // 清空加载中提示
+    container.innerHTML = '';
 
     dateGroups.forEach(group => {
-        // 创建日期组大盒子
         const dateBox = document.createElement('div');
         dateBox.className = 'date-group';
-        
-        // 日期头部 (例如: 06月12日 周五)
         dateBox.innerHTML = `<div class="date-title">${group.schedule_date_format} ${group.schedule_week}</div>`;
 
-        // 循环该日期下的每一场比赛列表 schedule_list
         group.schedule_list.forEach(match => {
             const card = document.createElement('div');
             card.className = 'match-card';
 
-            // 判断是否已完赛来决定显示比分还是显示 "VS"
             const scoreDisplay = (match.match_status === "3") 
                 ? `<span class="vs-score">${match.host_team_score} : ${match.guest_team_score}</span>`
                 : `<span class="vs">VS</span>`;
 
-            // 根据状态控制按钮是否可用（已完赛的不能再下注）
             const isFinished = match.match_status === "3";
             const btnAttr = isFinished ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : '';
 
@@ -103,54 +148,42 @@ function renderSchedule(dateGroups) {
             `;
             dateBox.appendChild(card);
         });
-
         container.appendChild(dateBox);
     });
 }
 
-// 5. 处理投注动作
-window.handleBet = function(matchName, prediction) {
+// 6. 提交下注到云端
+window.handleBet = async function(matchName, prediction) {
     const input = prompt(`请输入对【${matchName}】预测 [${prediction}] 的投注金额：`, "100");
-    if (input === null) return; // 用户取消
+    if (input === null) return;
 
     const amount = parseInt(input);
-    if (isNaN(amount) || amount <= 0) {
-        alert("请输入有效的正整数金额！");
-        return;
+    if (isNaN(amount) || amount <= 0) return alert("请输入有效金额！");
+
+    try {
+        const response = await fetch(`${API_URL}?action=place_bet`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                username: currentUsername,
+                match_name: matchName,
+                prediction: prediction,
+                amount: amount
+            })
+        });
+        const res = await response.json();
+
+        if (response.ok) {
+            alert("下注成功！");
+            document.getElementById('balance').innerText = res.balance;
+            renderHistory(res.bets);
+        } else {
+            alert("下注失败: " + res.error);
+        }
+    } catch (err) {
+        alert("网络请求错误");
     }
-
-    if (amount > balance) {
-        alert("余额不足，无法下注！");
-        return;
-    }
-
-    // 扣钱
-    balance -= amount;
-    
-    // 写入历史
-    const newBet = {
-        match: matchName,
-        prediction: prediction,
-        amount: amount,
-        time: new Date().toLocaleTimeString()
-    };
-    betHistory.unshift(newBet); // 最新的排在最前面
-    
-    // 限制历史记录最多保存 50 条，防止 localStorage 撑爆
-    if (betHistory.length > 50) {
-        betHistory.pop();
-    }
-    
-    localStorage.setItem('wc_history', JSON.stringify(betHistory));
-
-    // 更新界面
-    updateBalanceDisplay();
-    updateHistoryDisplay();
-
-    alert(`下注成功！成功为 ${matchName} (${prediction}) 投注 ${amount} 币。`);
 };
 
-// 页面首次加载初始化
-updateBalanceDisplay();
-updateHistoryDisplay();
-fetchSchedule();
+// 页面加载入口
+initApp();
