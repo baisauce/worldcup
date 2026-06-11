@@ -1,77 +1,140 @@
-* { box-sizing: border-box; margin: 0; padding: 0; }
+/* 基础全套美化样式 */
 body {
-    font-family: "Helvetica Neue", Helvetica, Arial, "Microsoft YaHei", sans-serif;
-    background-color: #f0f3f5;
-    color: #333;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f7fafc;
+    color: #2d3748;
+    margin: 0;
+    padding: 0;
+}
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
     padding: 20px;
 }
-.container { max-width: 1200px; margin: 0 auto; }
 header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: linear-gradient(135deg, #1e5799 0%, #2989d8 50%, #207cca 100%);
-    color: white;
-    padding: 20px;
-    border-radius: 12px;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 20px;
     margin-bottom: 20px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
-.wallet-box {
-    background: rgba(255, 255, 255, 0.2);
-    padding: 10px 20px;
-    border-radius: 30px;
-    font-size: 18px;
-}
-#balance { color: #ffeb3b; font-size: 24px; margin: 0 5px; }
+header h1 { margin: 0; font-size: 24px; color: #1a202c; }
 
-.main-content { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+.user-info { display: flex; align-items: center; }
+.wallet-box {
+    background-color: #edf2f7;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+}
+.wallet-box strong { color: #dd6b20; font-size: 18px; }
+.logout-btn {
+    background: #e53e3e;
+    color: white;
+    border: none;
+    margin-left: 15px;
+    padding: 6px 12px;
+    font-size: 13px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.logout-btn:hover { background: #c53030; }
+
+/* 主体左右分栏布局 */
+.main-content {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+}
 @media (max-width: 768px) {
     .main-content { grid-template-columns: 1fr; }
 }
 
-h2 { margin-bottom: 15px; font-size: 20px; border-left: 5px solid #207cca; padding-left: 10px; }
+h2 { font-size: 18px; color: #4a5568; border-left: 4px solid #3182ce; padding-left: 10px; margin-bottom: 15px; }
 
-/* 赛程卡片样式 */
+/* 赛程列表卡片 */
 .date-group { margin-bottom: 25px; }
-.date-title { background: #e2e8f0; padding: 8px 12px; font-weight: bold; border-radius: 6px; margin-bottom: 10px; }
+.date-title { font-weight: bold; background: #e2e8f0; padding: 6px 12px; border-radius: 4px; margin-bottom: 10px; font-size: 14px; }
 .match-card {
     background: white;
+    border: 1px solid #e2e8f0;
     border-radius: 8px;
     padding: 15px;
     margin-bottom: 12px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
 }
-.match-info { text-align: center; font-size: 12px; color: #666; margin-bottom: 10px; }
+.match-info { font-size: 12px; color: #718096; margin-bottom: 10px; }
 .match-teams {
     display: flex;
-    justify-content: space-around;
+    justify-content: space-between;
     align-items: center;
     margin-bottom: 15px;
+    padding: 0 20px;
 }
-.team { display: flex; flex-direction: column; align-items: center; width: 35%; }
-.team img { width: 45px; height: 45px; object-fit: contain; margin-bottom: 5px; }
-.team span { font-weight: bold; font-size: 16px; }
-.vs { font-size: 20px; font-weight: bold; color: #e53e3e; }
-.vs-score { font-size: 24px; font-weight: bold; color: #333; }
+.team { display: flex; flex-direction: column; align-items: center; width: 100px; text-align: center; }
+.team img { width: 45px; height: 45px; object-fit: contain; margin-bottom: 5px; border-radius: 50%; border: 1px solid #edf2f7; }
+.team span { font-weight: bold; font-size: 14px; }
+.vs { font-size: 18px; font-weight: bold; color: #a0aec0; }
+.vs-score { font-size: 22px; font-weight: bold; color: #e53e3e; letter-spacing: 2px; }
 
-/* 投注按钮 */
-.bet-actions { display: flex; gap: 10px; justify-content: center; }
+/* 投注按钮行为 */
+.bet-actions { display: flex; gap: 10px; }
 .bet-btn {
     flex: 1;
+    background: #3182ce;
+    color: white;
+    border: none;
     padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.2s;
+}
+.bet-btn:hover { background: #2b6cb0; }
+
+/* 历史记录模块 */
+.history-item { background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.01); }
+.history-tag { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+.empty-tip, .loading { text-align: center; color: #a0aec0; padding: 30px; font-size: 14px; }
+
+/* 登录框弹出模块 */
+.auth-box {
+    max-width: 400px;
+    margin: 100px auto;
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    text-align: center;
+}
+.auth-box h2 { border: none; margin-bottom: 20px; padding: 0; }
+.input-group input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    margin-bottom: 15px;
     border: 1px solid #cbd5e0;
-    background: #fff;
+    border-radius: 6px;
+    font-size: 16px;
+}
+.auth-btns { display: flex; gap: 10px; }
+.auth-btns button {
+    flex: 1;
+    padding: 12px;
+    font-size: 16px;
+    background: #3182ce;
+    color: white;
+    border: none;
     border-radius: 6px;
     cursor: pointer;
-    transition: all 0.2s;
-    font-size: 13px;
 }
-.bet-btn:hover { background: #ebf8ff; border-color: #3182ce; color: #3182ce; }
+.auth-btns button:hover { background: #2b6cb0; }
+.btn-secondary { background-color: #4a5568 !important; }
+.btn-secondary:hover { background-color: #2d3748 !important; }
 
-/* 历史记录样式 */
-.history-section { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); height: fit-content;}
-.history-item { border-bottom: 1px dashed #e2e8f0; padding: 10px 0; font-size: 14px; }
-.history-item:last-child { border-bottom: none; }
-.history-tag { display: inline-block; padding: 2px 6px; background: #edf2f7; border-radius: 4px; font-size: 12px; margin-right: 5px;}
-.loading, .empty-tip { color: #999; text-align: center; padding: 20px; }
+/* 输赢动态结算标签 */
+.status-tag { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-left: 5px; font-weight: bold;}
+.status-pending { background: #feebc8; color: #c05621; }
+.status-赢 { background: #c6f6d5; color: #22543d; }
+.status-输 { background: #fed7d7; color: #742a2a; }
