@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2026美加墨世界杯 - 模拟盘投注</title>
+    <title>2026美加墨世界杯 - 模拟盘全服大厅</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -23,10 +23,11 @@
         <header>
             <h1>🏆 2026世界杯模拟投注</h1>
             <div class="user-info">
-                <span id="current-user-name" style="margin-right:15px; font-weight:bold;">👤 未登录</span>
+                <span id="current-user-name" style="margin-right:15px; font-weight:bold;">👤 账号加载中</span>
                 <div class="wallet-box">
-                    <span>我的资产：</span>
-                    <strong id="balance">0</strong> <span class="coin">🪙 模拟币</span>
+                    <span>资产总额(含在途)：</span>
+                    <strong id="total-asset">0</strong> <span class="coin">🪙</span>
+                    <span class="asset-details">(可用:<span id="balance">0</span> | 在途:<span id="pending-asset">0</span>)</span>
                 </div>
                 <button onclick="handleLogout()" class="logout-btn">退出</button>
             </div>
@@ -40,12 +41,21 @@
                 </div>
             </section>
 
-            <section class="history-section">
-                <h2>📝 我的投注记录 (自动结算)</h2>
-                <div id="history-container">
-                    <p class="empty-tip">暂无投注记录，快去预测比赛吧！</p>
-                </div>
-            </section>
+            <div class="side-sections">
+                <section class="leaderboard-section">
+                    <h2>🏆 全服财富榜 & 投注大厅 (公开)</h2>
+                    <div id="leaderboard-container">
+                        <p class="loading">加载全服风云榜中...</p>
+                    </div>
+                </section>
+
+                <section class="history-section" style="margin-top: 25px;">
+                    <h2>📝 我的个人投注记录</h2>
+                    <div id="history-container">
+                        <p class="empty-tip">暂无投注记录，快去预测比赛吧！</p>
+                    </div>
+                </section>
+            </div>
         </main>
     </div>
     <script src="app.js"></script>
