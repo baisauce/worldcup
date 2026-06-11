@@ -56,7 +56,6 @@ async function initApp() {
             return;
         }
 
-        // 渲染顶部当前用户的钱包指标
         if (data.user) {
             document.getElementById('total-asset').innerText = data.user.total_held;
             document.getElementById('balance').innerText = data.user.balance;
@@ -64,10 +63,7 @@ async function initApp() {
             renderHistory(data.user.bets);
         }
         
-        // 渲染全服大厅排行榜
         renderLeaderboard(data.leaderboard);
-
-        // 渲染赛程
         renderSchedule(data.schedule);
 
     } catch (error) {
@@ -76,7 +72,7 @@ async function initApp() {
     }
 }
 
-// 渲染个人历史记录
+// 渲染个人历史记录 (显示当时锁定的下注赔率)
 function renderHistory(bets) {
     const container = document.getElementById('history-container');
     if (!bets || bets.length === 0) {
@@ -86,12 +82,13 @@ function renderHistory(bets) {
     container.innerHTML = bets.map(bet => {
         let statusClass = `status-${bet.status}`;
         let statusText = bet.status === 'pending' ? '等待开赛' : bet.status;
+        let showOdds = bet.odds ? bet.odds.toFixed(2) : '2.00';
         return `
             <div class="history-item">
                 <div><strong>${bet.match_name}</strong></div>
                 <div style="margin-top: 5px; color:#666; font-size:13px;">
                     猜: <span class="history-tag" style="background:#e2e8f0;">${bet.prediction}</span> 
-                    投了 <strong>${bet.amount}</strong> 🪙
+                    投了 <strong>${bet.amount}</strong> 🪙 (赔率: <span style="color:#b7791f;font-weight:bold;">${showOdds}</span>)
                     <span class="status-tag ${statusClass}">${statusText}</span>
                 </div>
                 <div style="font-size:11px; color:#999; margin-top:4px;">时间: ${bet.time}</div>
@@ -100,7 +97,7 @@ function renderHistory(bets) {
     }).join('');
 }
 
-// 渲染全服财富榜及所有账号的投注明细
+// 渲染全服大厅排行榜与全公开注单
 function renderLeaderboard(users) {
     const container = document.getElementById('leaderboard-container');
     if (!users || users.length === 0) {
@@ -109,19 +106,18 @@ function renderLeaderboard(users) {
     }
 
     container.innerHTML = users.map((user, index) => {
-        // 前三名配奖牌勋章
         let rankMedal = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `【第${index + 1}名】`;
         
-        // 拼接该用户的所有下注公开明细
         let betsDetailHtml = "";
         if (user.bets && user.bets.length > 0) {
             betsDetailHtml = user.bets.map(b => {
                 let sColor = b.status === 'pending' ? '#c05621' : b.status === '赢' ? '#22543d' : '#742a2a';
                 let sName = b.status === 'pending' ? '在途' : b.status;
+                let bOdds = b.odds ? b.odds.toFixed(2) : '2.00';
                 return `
                     <div class="public-bet-row">
                         🎯 ${b.match_name} <br>
-                        预测: <span class="mini-tag">${b.prediction}</span> | 金额: <b>${b.amount}</b> | 状态: <span style="color:${sColor};font-weight:bold;">${sName}</span>
+                        预测: <span class="mini-tag">${b.prediction}</span> | 金额: <b>${b.amount}</b> | 赔率: <b style="color:#b7791f;">${bOdds}</b> | 状态: <span style="color:${sColor};font-weight:bold;">${sName}</span>
                     </div>
                 `;
             }).join('');
@@ -129,7 +125,6 @@ function renderLeaderboard(users) {
             betsDetailHtml = '<div style="color:#a0aec0;font-size:12px;padding:5px 0;">该账号目前没有任何历史下注</div>';
         }
 
-        // 当前行是否是正在看网页的自己
         const isMe = user.username === currentUsername ? 'style="border: 2px solid #3182ce; background:#f7fafc;"' : '';
 
         return `
@@ -154,6 +149,7 @@ function renderLeaderboard(users) {
     }).join('');
 }
 
+// 渲染赛程列表（在投注按钮上直接展现高能赔率）
 function renderSchedule(dateGroups) {
     const container = document.getElementById('matches-container');
     container.innerHTML = '';
@@ -174,6 +170,12 @@ function renderSchedule(dateGroups) {
             const isFinished = match.match_status === "3";
             const btnAttr = isFinished ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : '';
 
+            // 提取后端传入的手动赔率进行格式化显示
+            const oddsObj = match.custom_odds || {};
+            const hOdds = oddsObj[`${match.host_team_name} 胜`] ? oddsObj[`${match.host_team_name} 胜`].toFixed(2) : '--';
+            const dOdds = oddsObj['平局'] ? oddsObj['平局'].toFixed(2) : '--';
+            const gOdds = oddsObj[`${match.guest_team_name} 胜`] ? oddsObj[`${match.guest_team_name} 胜`].toFixed(2) : '--';
+
             card.innerHTML = `
                 <div class="match-info">
                     <span>【${match.match_type_name}·${match.match_type_des}】</span> | 
@@ -192,9 +194,9 @@ function renderSchedule(dateGroups) {
                     </div>
                 </div>
                 <div class="bet-actions">
-                    <button class="bet-btn" ${btnAttr} onclick="handleBet('${match.host_team_name} VS ${match.guest_team_name}', '${match.host_team_name} 胜')">主胜</button>
-                    <button class="bet-btn" ${btnAttr} onclick="handleBet('${match.host_team_name} VS ${match.guest_team_name}', '平局')">平局</button>
-                    <button class="bet-btn" ${btnAttr} onclick="handleBet('${match.host_team_name} VS ${match.guest_team_name}', '${match.guest_team_name} 胜')">客胜</button>
+                    <button class="bet-btn" ${btnAttr} onclick="handleBet('${match.host_team_name} VS ${match.guest_team_name}', '${match.host_team_name} 胜')">主胜 [${hOdds}]</button>
+                    <button class="bet-btn" ${btnAttr} onclick="handleBet('${match.host_team_name} VS ${match.guest_team_name}', '平局')">平局 [${dOdds}]</button>
+                    <button class="bet-btn" ${btnAttr} onclick="handleBet('${match.host_team_name} VS ${match.guest_team_name}', '${match.guest_team_name} 胜')">客胜 [${gOdds}]</button>
                 </div>
             `;
             dateBox.appendChild(card);
@@ -224,13 +226,12 @@ window.handleBet = async function(matchName, prediction) {
         const res = await response.json();
 
         if (response.ok) {
-            alert("下注成功！在途资金已冻结。");
+            alert("下注成功！赔率已被锁定，在途资金已冻结。");
             document.getElementById('total-asset').innerText = res.total_held;
             document.getElementById('balance').innerText = res.balance;
             document.getElementById('pending-asset').innerText = res.pending;
             renderHistory(res.bets);
-            // 重新请求一次全服大厅刷新资产排行榜
-            initApp();
+            initApp(); 
         } else {
             alert(res.error);
         }
