@@ -1,12 +1,6 @@
-// 1. 配置你的聚合 API 密钥
-const API_KEY = '6858a0ae96541bb2a4c061150710d067';
-
-// ⚠️ 重要提示：聚合数据限制了浏览器直接跨域(CORS)请求。
-// 如果你在本地或 GitHub Pages 运行时遇到跨域报错，可以使用下面的免费代理 URL 包装它：
-const REAL_API_URL = `https://apis.juhe.cn/fapigw/worldcup2026/schedule?key=${API_KEY}`;
-// 如果报错跨域，请取消注释下一行，并使用代理 URL：
-// const API_URL = `https://cors-anywhere.herokuapp.com/${REAL_API_URL}`; 
-const API_URL = REAL_API_URL;
+// 1. 配置你的 Cloudflare Worker 专属链接
+// ⚠️ 请务必替换为你在 Cloudflare 得到的真实域名
+const API_URL = 'https://worldcup-api.carl-ning-buaa.workers.dev/'; 
 
 // 2. 初始化本地钱包和投注历史
 let balance = parseInt(localStorage.getItem('wc_balance')) || 1000;
@@ -52,7 +46,7 @@ async function fetchSchedule() {
     } catch (error) {
         console.error("Fetch Error:", error);
         document.getElementById('matches-container').innerHTML = `
-            <p class="loading" style="color:red;">加载失败。提示：如果遇到跨域问题，请查看代码中的代理服务器设置。</p>
+            <p class="loading" style="color:red;">加载失败。请检查 Cloudflare Worker 链接是否填写正确，或稍后重试。</p>
         `;
     }
 }
@@ -141,6 +135,12 @@ window.handleBet = function(matchName, prediction) {
         time: new Date().toLocaleTimeString()
     };
     betHistory.unshift(newBet); // 最新的排在最前面
+    
+    // 限制历史记录最多保存 50 条，防止 localStorage 撑爆
+    if (betHistory.length > 50) {
+        betHistory.pop();
+    }
+    
     localStorage.setItem('wc_history', JSON.stringify(betHistory));
 
     // 更新界面
