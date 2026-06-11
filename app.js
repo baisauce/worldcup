@@ -1,13 +1,10 @@
-// 1. 配置你的 Cloudflare Worker 专属链接（已为你替换为真实链接）
 const API_URL = 'https://worldcup-api.carl-ning-buaa.workers.dev/'; 
 
 let currentUsername = localStorage.getItem('wc_logged_user') || null;
 
-// 2. 登录与注册统一处理
 async function handleAuth(type) {
     const u = document.getElementById('auth-username').value.trim();
     const p = document.getElementById('auth-password').value.trim();
-    
     if(!u || !p) return alert("请输入账号和密码！");
 
     try {
@@ -19,7 +16,7 @@ async function handleAuth(type) {
         const res = await response.json();
 
         if (response.ok) {
-            alert(res.message || "登录成功！");
+            alert(res.message || "操作成功！");
             if(type === 'login' || type === 'register') {
                 localStorage.setItem('wc_logged_user', u);
                 currentUsername = u;
@@ -33,14 +30,12 @@ async function handleAuth(type) {
     }
 }
 
-// 退出登录
 function handleLogout() {
     localStorage.removeItem('wc_logged_user');
     currentUsername = null;
     location.reload();
 }
 
-// 3. 初始化并拉取数据
 async function initApp() {
     if (!currentUsername) {
         document.getElementById('auth-container').style.display = 'block';
@@ -48,13 +43,11 @@ async function initApp() {
         return;
     }
 
-    // 隐藏登录页，显示主页
     document.getElementById('auth-container').style.display = 'none';
     document.getElementById('main-app').style.display = 'block';
     document.getElementById('current-user-name').innerText = `👤 账号: ${currentUsername}`;
 
     try {
-        // 请求后端获取赛程及该用户的资产、投注状态
         const response = await fetch(`${API_URL}?action=get_data&username=${currentUsername}`);
         const data = await response.json();
 
@@ -63,13 +56,18 @@ async function initApp() {
             return;
         }
 
-        // 更新余额显示
-        document.getElementById('balance').innerText = data.user ? data.user.balance : 1000;
+        // 渲染顶部当前用户的钱包指标
+        if (data.user) {
+            document.getElementById('total-asset').innerText = data.user.total_held;
+            document.getElementById('balance').innerText = data.user.balance;
+            document.getElementById('pending-asset').innerText = data.user.pending;
+            renderHistory(data.user.bets);
+        }
         
-        // 渲染投注历史
-        renderHistory(data.user ? data.user.bets : []);
+        // 渲染全服大厅排行榜
+        renderLeaderboard(data.leaderboard);
 
-        // 渲染赛程列表
+        // 渲染赛程
         renderSchedule(data.schedule);
 
     } catch (error) {
@@ -78,11 +76,11 @@ async function initApp() {
     }
 }
 
-// 4. 渲染投注历史 (带输赢状态)
+// 渲染个人历史记录
 function renderHistory(bets) {
     const container = document.getElementById('history-container');
     if (!bets || bets.length === 0) {
-        container.innerHTML = '<p class="empty-tip">暂无投注记录，快去预测比赛吧！</p>';
+        container.innerHTML = '<p class="empty-tip">暂无投注记录</p>';
         return;
     }
     container.innerHTML = bets.map(bet => {
@@ -91,18 +89,71 @@ function renderHistory(bets) {
         return `
             <div class="history-item">
                 <div><strong>${bet.match_name}</strong></div>
-                <div style="margin-top: 5px; color:#666;">
+                <div style="margin-top: 5px; color:#666; font-size:13px;">
                     猜: <span class="history-tag" style="background:#e2e8f0;">${bet.prediction}</span> 
                     投了 <strong>${bet.amount}</strong> 🪙
                     <span class="status-tag ${statusClass}">${statusText}</span>
                 </div>
-                <div style="font-size:11px; color:#999; margin-top:2px;">下注时间: ${bet.time}</div>
+                <div style="font-size:11px; color:#999; margin-top:4px;">时间: ${bet.time}</div>
             </div>
         `;
     }).join('');
 }
 
-// 5. 渲染赛程列表
+// 渲染全服财富榜及所有账号的投注明细
+function renderLeaderboard(users) {
+    const container = document.getElementById('leaderboard-container');
+    if (!users || users.length === 0) {
+        container.innerHTML = '<p class="empty-tip">暂无玩家数据</p>';
+        return;
+    }
+
+    container.innerHTML = users.map((user, index) => {
+        // 前三名配奖牌勋章
+        let rankMedal = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `【第${index + 1}名】`;
+        
+        // 拼接该用户的所有下注公开明细
+        let betsDetailHtml = "";
+        if (user.bets && user.bets.length > 0) {
+            betsDetailHtml = user.bets.map(b => {
+                let sColor = b.status === 'pending' ? '#c05621' : b.status === '赢' ? '#22543d' : '#742a2a';
+                let sName = b.status === 'pending' ? '在途' : b.status;
+                return `
+                    <div class="public-bet-row">
+                        🎯 ${b.match_name} <br>
+                        预测: <span class="mini-tag">${b.prediction}</span> | 金额: <b>${b.amount}</b> | 状态: <span style="color:${sColor};font-weight:bold;">${sName}</span>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            betsDetailHtml = '<div style="color:#a0aec0;font-size:12px;padding:5px 0;">该账号目前没有任何历史下注</div>';
+        }
+
+        // 当前行是否是正在看网页的自己
+        const isMe = user.username === currentUsername ? 'style="border: 2px solid #3182ce; background:#f7fafc;"' : '';
+
+        return `
+            <div class="rank-card" ${isMe}>
+                <div class="rank-main-info">
+                    <span>${rankMedal} <strong>${user.username}</strong></span>
+                    <span style="color:#2b6cb0; font-weight:bold;">总资产: ${user.total_held} 🪙</span>
+                </div>
+                <div class="rank-sub-info">
+                    可用余额: ${user.balance} | 冻结在途: ${user.pending}
+                </div>
+                <div class="rank-details-box">
+                    <details>
+                        <summary>查看该账号投注明细 (${user.bets.length}笔)</summary>
+                        <div class="public-bets-list">
+                            ${betsDetailHtml}
+                        </div>
+                    </details>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
 function renderSchedule(dateGroups) {
     const container = document.getElementById('matches-container');
     container.innerHTML = '';
@@ -152,7 +203,6 @@ function renderSchedule(dateGroups) {
     });
 }
 
-// 6. 提交下注到云端
 window.handleBet = async function(matchName, prediction) {
     const input = prompt(`请输入对【${matchName}】预测 [${prediction}] 的投注金额：`, "100");
     if (input === null) return;
@@ -174,16 +224,19 @@ window.handleBet = async function(matchName, prediction) {
         const res = await response.json();
 
         if (response.ok) {
-            alert("下注成功！");
+            alert("下注成功！在途资金已冻结。");
+            document.getElementById('total-asset').innerText = res.total_held;
             document.getElementById('balance').innerText = res.balance;
+            document.getElementById('pending-asset').innerText = res.pending;
             renderHistory(res.bets);
+            // 重新请求一次全服大厅刷新资产排行榜
+            initApp();
         } else {
-            alert("下注失败: " + res.error);
+            alert(res.error);
         }
     } catch (err) {
         alert("网络请求错误");
     }
 };
 
-// 页面加载入口
 initApp();
